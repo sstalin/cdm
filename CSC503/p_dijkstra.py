@@ -104,9 +104,6 @@ class Graph(object):
         local_vertices = comm.one2all_scatter(source, range(n))
         print "My rank:[ ", comm.rank , "] and my locals are : ", local_vertices
         while None in solved:
-            next_solved = comm.one2all_broadcast(source, next_solved)
-            if next_solved not in solved:
-                solved[next_solved.id] = next_solved
             #print "My rank:[ ", comm.rank, "] next solved id before the loop ", next_solved.id 
             message = None, float('inf'), None
             #begin local loop
@@ -123,13 +120,13 @@ class Graph(object):
                         if next_dist < message[1]:
                             message = i, next_dist, j
                                     
-            #print "My rank:[", comm.rank, "] message before all2one_reduce:  ", message 
-            next_candidate = comm.all2one_reduce(source, message, self.min_candidate)
-            if comm.rank == source:
-                #print "My rank[", comm.rank , "] and I see candidate ", next_candidate, "after reduce" 
-                next_solved = Vertex(id= next_candidate[0]
+            next_candidate = comm.all2all_reduce( message, self.min_candidate)
+            next_solved = Vertex(id= next_candidate[0]
                                      ,edge_to= next_candidate[2]
                                      ,dist_to= next_candidate[1], solved= True)
+            if next_solved not in solved:
+                solved[next_solved.id] = next_solved
+
         if comm.rank == source:
             self.solved_v = solved
             return solved
@@ -137,13 +134,13 @@ class Graph(object):
             return []
 
 
-g = Graph(from_file = 'in.txt')
+g = Graph(from_file = 'input.txt')
 #g = Graph(node_count = 6)
-print "****************** SEQUENTIAL ******************"
-s = g.s_SSP(origin= 0)
-print  g.print_all_shortest()
-#print "****************** PARALLEL   ******************"
-#s = g.p_SSP(origin= 0)
+#print "****************** SEQUENTIAL ******************"
+#s = g.s_SSP(origin= 0)
 #print  g.print_all_shortest()
+print "****************** PARALLEL   ******************"
+s = g.p_SSP(origin= 0)
+print  g.print_all_shortest()
 
         

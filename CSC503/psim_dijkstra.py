@@ -1,4 +1,5 @@
 from psim import PSim
+from pq import *
 import random, sys, re 
 
 class Vertex(object):
@@ -66,35 +67,38 @@ class Graph(object):
         else:
             return b
 
-    #sequential single source shortes path        
+    #sequential single source shortes path using priority queue from pq.py        
     def s_SSP(self, origin= 0):
         n = len(self.state)
-        solved = self.solved_v
-        next_solved = Vertex(id= origin, dist_to=0, solved=True)
-        solved[origin] = next_solved
+        solved = [None]*n
+        v = id, coast, parent = origin, 0, None # source vertex
+        add_v(v, coast)
         while None in solved:
-            t = id, dist_to, parent = None, float('inf'), None
-            #begin loop
-            for i in xrange(n):
-                # proceed only if i not solved
-                if solved[i] is None:
-                    #compute candidate distance for vertex
-                    for j in xrange(n):
-                        if i == j or solved[j] is None:
-                            continue
-                        if self.state[i][j] is None or self.state[i][j] is 0:
-                            continue
-                        next_dist = self.state[i][j] + solved[j].dist_to
-                        if next_dist < t[1]:
-                            t = id, dist_to, parent = i, next_dist, j
-            next_solved = Vertex(id= id
-                                 ,edge_to= parent
-                                 ,dist_to= dist_to, solved= True)
+            try:
+                best_candidate = id, coast, parent = pop_v()
+            except KeyError as e:
+                continue
+            i = id
+            if i is not None:
+                for j in xrange(n):
+                    if i == j:
+                        continue
+                    if self.state[i][j] is None or self.state[i][j] is 0:
+                        continue
+                    if solved[j] is not None:
+                        continue
+                    d = coast + self.state[i][j]
+                    v = j, d, i
+                    add_v(v, d)
+            next_candidate = best_candidate
+            next_solved = Vertex(id= next_candidate[0]
+                                     ,edge_to= next_candidate[2]
+                                     ,dist_to= next_candidate[1], solved= True)
             if next_solved not in solved:
-                solved[id] = next_solved
-        #set solved vertices
+                solved[next_solved.id] = next_solved
         self.solved_v = solved
-                
+        return solved
+
     #parallel single source shortes path
     def p_SSP(self, p=2, origin= 0, source= 0):
         n = len(self.state)
@@ -120,14 +124,12 @@ class Graph(object):
                         next_dist = self.state[i][j] + solved[j].dist_to
                         if next_dist < message[1]:
                             message = i, next_dist, j
-                        
-            next_candidate = comm.all2all_reduce(message, self.min_candidate)
+            next_candidate = comm.all2all_reduce( message, self.min_candidate)
             next_solved = Vertex(id= next_candidate[0]
                                      ,edge_to= next_candidate[2]
                                      ,dist_to= next_candidate[1], solved= True)
             if next_solved not in solved:
                 solved[next_solved.id] = next_solved
-
         if comm.rank == source:
             self.solved_v = solved
             return solved
@@ -137,11 +139,11 @@ class Graph(object):
 
 g = Graph(from_file = 'input.txt')
 #g = Graph(node_count = 6)
-#print "****************** SEQUENTIAL ******************"
-#s = g.s_SSP(origin= 0)
-#print  g.print_all_shortest()
-print "****************** PARALLEL   ******************"
-s = g.p_SSP(origin= 0)
+print "****************** SEQUENTIAL ******************"
+s = g.s_SSP(origin= 0)
 print  g.print_all_shortest()
+#print "****************** PARALLEL   ******************"
+#s = g.p_SSP(origin= 0)
+#print  g.print_all_shortest()
 
         
